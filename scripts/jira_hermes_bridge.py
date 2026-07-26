@@ -179,12 +179,23 @@ class JiraClient:
         self.api_token = api_token
 
     def search_issues(self, jql: str, max_results: int = 50) -> list[dict]:
-        """Search issues using JQL. Returns list of issue dicts."""
+        """Search issues using JQL. Returns list of issue dicts.
+
+        Uses POST /rest/api/3/search with fields as a JSON array per
+        Jira Cloud REST API v3 contract.
+        """
         url = f"{self.base_url}/rest/api/3/search"
         params = {
             "jql": jql,
             "maxResults": max_results,
-            "fields": "summary,description,labels,issuelinks,status,assignee",
+            "fields": [
+                "summary",
+                "description",
+                "labels",
+                "issuelinks",
+                "status",
+                "assignee",
+            ],
         }
         data = json.dumps(params).encode("utf-8")
         req = urllib.request.Request(
@@ -201,7 +212,10 @@ class JiraClient:
                 body = json.loads(resp.read().decode("utf-8"))
                 return body.get("issues", [])
         except urllib.error.HTTPError as e:
-            raise JiraApiError(f"Jira search failed: {e.code} {e.reason}") from e
+            error_detail = _extract_jira_error(e)
+            raise JiraApiError(
+                f"Jira search failed: {e.code} {e.reason} — {error_detail}"
+            ) from e
         except urllib.error.URLError as e:
             raise JiraApiError(f"Jira connection failed: {e.reason}") from e
 
@@ -287,6 +301,44 @@ def _basic_auth(user: str, token: str) -> str:
     """Build Basic auth header value."""
     import base64
     return base64.b64encode(f"{user}:{token}".encode()).decode()
+
+
+# Sensitive keys to redact from error output
+_SENSITIVE_KEYS = frozenset({
+    "token", "api_token", "apiToken", "password", "secret",
+    "authorization", "auth", "credential", "key",
+})
+
+
+def _extract_jira_error(http_error: urllib.error.HTTPError) -> str:
+    """Extract and redact Jira error messages from an HTTPError response body.
+
+    Returns a safe diagnostic string containing errorMessages and errors
+    from the Jira response, with any sensitive values redacted.
+    """
+    try:
+        body = http_error.read().decode("utf-8", errors="replace")
+        data = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # Not JSON — return truncated raw body
+        return body[:200] if body else "(empty response body)"
+
+    parts: list[str] = []
+
+    # errorMessages: list of strings
+    for msg in data.get("errorMessages", []):
+        parts.append(str(msg))
+
+    # errors: dict of field -> message
+    errors = data.get("errors", {})
+    for field, msg in errors.items():
+        # Redact sensitive field names
+        if field.lower() in _SENSITIVE_KEYS:
+            parts.append(f"{field}: [REDACTED]")
+        else:
+            parts.append(f"{field}: {msg}")
+
+    return "; ".join(parts) if parts else "(no error details in response)"
 
 
 class JiraApiError(Exception):

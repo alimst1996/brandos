@@ -8,6 +8,7 @@ bounded context, redaction, failure handling, idempotency, and boundary tests.
 Run: python -m pytest tests/test_bridge.py -v
 """
 
+import io
 import json
 import os
 import sys
@@ -36,6 +37,7 @@ from jira_hermes_bridge import (
     CredentialError,
     JiraApiError,
     HermesApiError,
+    _extract_jira_error,
 )
 from check_readiness import validate_issue
 
@@ -1112,3 +1114,223 @@ class TestEdgeCases:
             ])
             eligible, _, _ = check_eligibility(issue)
             assert eligible is True, f"Agent label {label} should be eligible"
+
+
+# ---------------------------------------------------------------------------
+# Jira Search API Compatibility Tests (BOS-22)
+# ---------------------------------------------------------------------------
+
+
+class TestJiraSearchCompat:
+    """Test Jira Cloud search API compatibility fixes."""
+
+    def test_search_issues_uses_fields_array(self):
+        """search_issues sends fields as a JSON array, not a comma-separated string."""
+        from unittest.mock import MagicMock, patch
+        import io
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+
+        # Mock urllib.request.urlopen to capture the request
+        captured_request = {}
+
+        def mock_urlopen(req, timeout=30):
+            captured_request["url"] = req.full_url
+            captured_request["data"] = json.loads(req.data.decode("utf-8"))
+            captured_request["method"] = req.method
+            # Return a mock response
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"issues": []}).encode("utf-8")
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            client.search_issues("project = BOS")
+
+        # Verify fields is a list, not a string
+        assert captured_request["method"] == "POST"
+        assert "/rest/api/3/search" in captured_request["url"]
+        assert isinstance(captured_request["data"]["fields"], list)
+        assert "summary" in captured_request["data"]["fields"]
+        assert "description" in captured_request["data"]["fields"]
+        assert "labels" in captured_request["data"]["fields"]
+
+    def test_search_issues_endpoint_is_rest_api_3_search(self):
+        """search_issues uses POST /rest/api/3/search endpoint."""
+        from unittest.mock import patch, MagicMock
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        captured_url = {}
+
+        def mock_urlopen(req, timeout=30):
+            captured_url["url"] = req.full_url
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"issues": []}).encode("utf-8")
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            client.search_issues("project = BOS")
+
+        assert captured_url["url"] == "https://test.atlassian.net/rest/api/3/search"
+
+    def test_search_issues_extracts_issues_from_response(self):
+        """search_issues correctly extracts the issues list from Jira response."""
+        from unittest.mock import patch, MagicMock
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        mock_issues = [
+            {"key": "BOS-1", "fields": {"summary": "Test Issue 1"}},
+            {"key": "BOS-2", "fields": {"summary": "Test Issue 2"}},
+        ]
+
+        def mock_urlopen(req, timeout=30):
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"issues": mock_issues}).encode("utf-8")
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            result = client.search_issues("project = BOS")
+
+        assert len(result) == 2
+        assert result[0]["key"] == "BOS-1"
+        assert result[1]["key"] == "BOS-2"
+
+    def test_search_issues_http_400_extracts_error_messages(self):
+        """search_issues extracts errorMessages from HTTP 400 responses."""
+        from unittest.mock import patch, MagicMock
+        import urllib.error
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        error_body = json.dumps({
+            "errorMessages": ["The value 'INVALID' does not exist for the field 'project'."],
+            "errors": {}
+        }).encode("utf-8")
+
+        def mock_urlopen(req, timeout=30):
+            http_err = urllib.error.HTTPError(
+                url=req.full_url,
+                code=400,
+                msg="Bad Request",
+                hdrs={},
+                fp=io.BytesIO(error_body),
+            )
+            raise http_err
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            with pytest.raises(JiraApiError, match="400"):
+                client.search_issues("project = INVALID")
+
+    def test_search_issues_http_400_extracts_errors_dict(self):
+        """search_issues extracts errors dict from HTTP 400 responses."""
+        from unittest.mock import patch, MagicMock
+        import urllib.error
+        import io
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        error_body = json.dumps({
+            "errorMessages": [],
+            "errors": {"jql": "Field 'invalid_field' does not exist."}
+        }).encode("utf-8")
+
+        def mock_urlopen(req, timeout=30):
+            http_err = urllib.error.HTTPError(
+                url=req.full_url,
+                code=400,
+                msg="Bad Request",
+                hdrs={},
+                fp=io.BytesIO(error_body),
+            )
+            raise http_err
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            with pytest.raises(JiraApiError, match="jql"):
+                client.search_issues("invalid_field = X")
+
+    def test_search_issues_redacts_sensitive_error_fields(self):
+        """search_issues redacts sensitive field names in error responses."""
+        from unittest.mock import patch, MagicMock
+        import urllib.error
+        import io
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        error_body = json.dumps({
+            "errorMessages": [],
+            "errors": {
+                "token": "expired",
+                "authorization": "invalid",
+                "project": "not found"
+            }
+        }).encode("utf-8")
+
+        def mock_urlopen(req, timeout=30):
+            http_err = urllib.error.HTTPError(
+                url=req.full_url,
+                code=400,
+                msg="Bad Request",
+                hdrs={},
+                fp=io.BytesIO(error_body),
+            )
+            raise http_err
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            with pytest.raises(JiraApiError) as exc_info:
+                client.search_issues("project = BOS")
+
+            error_msg = str(exc_info.value)
+            # Sensitive fields should be redacted
+            assert "[REDACTED]" in error_msg
+            assert "expired" not in error_msg
+            assert "invalid" not in error_msg
+            # Non-sensitive fields should appear
+            assert "project" in error_msg
+            assert "not found" in error_msg
+
+    def test_search_issues_no_mutation_in_dry_run(self):
+        """search_issues does not mutate state (no side effects in request building)."""
+        from unittest.mock import patch, MagicMock
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        original_base_url = client.base_url
+        original_user = client.user
+
+        def mock_urlopen(req, timeout=30):
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"issues": []}).encode("utf-8")
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            client.search_issues("project = BOS")
+
+        # Client state should not be mutated
+        assert client.base_url == original_base_url
+        assert client.user == original_user
+
+    def test_extract_jira_error_with_empty_body(self):
+        """_extract_jira_error handles empty response body."""
+        from jira_hermes_bridge import _extract_jira_error
+        import urllib.error
+
+        # Create a mock HTTPError with empty body
+        mock_err = MagicMock()
+        mock_err.read.return_value = b""
+
+        result = _extract_jira_error(mock_err)
+        assert result == "(empty response body)"
+
+    def test_extract_jira_error_with_non_json_body(self):
+        """_extract_jira_error handles non-JSON response body."""
+        from jira_hermes_bridge import _extract_jira_error
+        import urllib.error
+
+        mock_err = MagicMock()
+        mock_err.read.return_value = b"<html>Error page</html>"
+
+        result = _extract_jira_error(mock_err)
+        assert "<html>" in result

@@ -17,6 +17,8 @@ interface ErrorResponse {
   requestId?: string;
 }
 
+const SENSITIVE_FIELD_REGEX = /password|token|secret|apiKey|authorization/i;
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -43,10 +45,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       message = exception.message;
-      this.logger.error(
-        `Unhandled exception: ${exception.message}`,
-        exception.stack,
-      );
+      this.logger.error(`Unhandled exception: ${exception.message}`, exception.stack);
     } else {
       this.logger.error('Unknown exception type', JSON.stringify(exception));
     }
@@ -67,11 +66,34 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         JSON.stringify(errorResponse),
       );
     } else {
-      this.logger.warn(
-        `${request.method} ${request.url} ${status}: ${JSON.stringify(message)}`,
-      );
+      this.logger.warn(`${request.method} ${request.url} ${status}: ${JSON.stringify(message)}`);
     }
 
-    response.status(status).json(errorResponse);
+    const redactedResponse = this.redactFields(errorResponse);
+    response.status(status).json(redactedResponse);
+  }
+
+  redactFields(obj: unknown): unknown {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.redactFields(item));
+    }
+
+    if (typeof obj === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (SENSITIVE_FIELD_REGEX.test(key)) {
+          result[key] = '[REDACTED]';
+        } else {
+          result[key] = this.redactFields(value);
+        }
+      }
+      return result;
+    }
+
+    return obj;
   }
 }

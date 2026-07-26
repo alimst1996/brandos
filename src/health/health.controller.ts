@@ -1,16 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
-import {
-  HealthCheckService,
-  HealthCheck,
-} from '@nestjs/terminus';
+import { HealthCheckService, HealthCheck } from '@nestjs/terminus';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
-  constructor(
-    private health: HealthCheckService,
-  ) {}
+  constructor(private health: HealthCheckService) {}
 
   @Get()
   @HealthCheck()
@@ -40,9 +35,7 @@ export class HealthController {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      checks: {
-        database: 'connected',
-      },
+      services: {},
     };
   }
 }

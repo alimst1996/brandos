@@ -1,0 +1,21 @@
+{
+  "key": "BOS-TEST",
+  "fields": {
+    "summary": "TEST-001 — Safe dry-run fixture for bridge validation",
+    "description": "## Goal\nValidate the Jira-to-Hermes bridge using this dedicated test fixture.\n\n## Scope\nBridge script and dispatched task shape.\n\n## Out of Scope\nReal Jira modifications, production deployments.\n\n## Acceptance Criteria\n- A dry-run does NOT create Hermes tasks\n- A dry-run does NOT modify Jira issues\n- Eligibility check passes for this fixture\n- Bounded context includes all sections\n- Idempotency key format matches jira:<ISSUE-KEY>\n\n## Tests and Evidence\n- Unit tests in test_bridge.py (60+ tests)\n- Idempotency test proves duplicate suppression\n- Integration boundary tests for both adapters\n- This fixture is used in the dry-run E2E test\n\n## Security\n- Credentials loaded from environment only\n- All log output redacts tokens, API keys, and passwords\n- No credentials committed to repository\n\n## Context\nBrandOS control-plane: scripts/jira_hermes_bridge.py",
+    "labels": [
+      "ready-for-dispatch",
+      "agent-backend",
+      "role-dev",
+      "review-by-agent-quality",
+      "risk-low",
+      "phase-test",
+      "points-3",
+      "ver-0.1-foundation"
+    ],
+    "issuelinks": [],
+    "status": {
+      "name": "To Do"
+    }
+  }
+}

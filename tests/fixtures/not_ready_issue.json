@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "summary": "EXAMPLE-002 — Incomplete issue",
+    "description": "Make it faster.",
+    "labels": [
+      "do-not-dispatch-yet",
+      "risk-high",
+      "phase-foundation",
+      "points-3"
+    ],
+    "issuelinks": [
+      {
+        "type": {
+          "inward": "is blocked by",
+          "outward": "blocks"
+        },
+        "inwardIssue": {
+          "key": "EXAMPLE-100",
+          "fields": {
+            "status": { "name": "To Do" }
+          }
+        }
+      }
+    ]
+  }
+}

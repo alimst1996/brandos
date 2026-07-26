@@ -1,0 +1,18 @@
+{
+  "fields": {
+    "summary": "EXAMPLE-001 — Ready issue example",
+    "description": "## Goal\nImplement the login flow.\n\n## Scope\nFrontend and API.\n\n## Out of scope\nMobile native.\n\n## Acceptance Criteria\n- User can log in with email/password\n- Redirect to dashboard on success\n- Error message on invalid credentials\n\n## Tests and Evidence\n- Unit tests for auth service\n- E2E test for login flow\n\n## Security\n- Passwords hashed with bcrypt\n- Rate limiting on login endpoint",
+    "labels": [
+      "ready-for-dispatch",
+      "role-dev",
+      "review-by-agent-quality",
+      "risk-low",
+      "phase-foundation",
+      "points-2",
+      "ver-0.1-foundation",
+      "agent-orchestrator",
+      "human-approval-required"
+    ],
+    "issuelinks": []
+  }
+}

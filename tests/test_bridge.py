@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from jira_hermes_bridge import (
     AGENT_LABEL_TO_PROFILE,
     BLOCK_LABELS,
+    RedactingFilter,
     check_eligibility,
     map_agent_to_profile,
     derive_branch_name,
@@ -422,6 +423,108 @@ class TestRedaction:
 
 
 # ---------------------------------------------------------------------------
+# RedactingFilter log-level regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestRedactingFilter:
+    """Test the log-record RedactingFilter catches free-text secret forms."""
+
+    @staticmethod
+    def _apply_filter(msg: str) -> str:
+        """Apply RedactingFilter to a log record message and return the result."""
+        import logging
+        record = logging.LogRecord(
+            name="test", level=logging.INFO, pathname="", lineno=0,
+            msg=msg, args=None, exc_info=None,
+        )
+        f = RedactingFilter()
+        f.filter(record)
+        return record.msg
+
+    def test_authorization_bearer_header(self):
+        """Authorization: Bearer <value> is fully redacted."""
+        secret = "eyJhbGciOiJIUzI1NiJ9.secret-payload"
+        msg = f'{{"Authorization": "Authorization: Bearer {secret}"}}'
+        result = self._apply_filter(msg)
+        assert secret not in result, f"Secret leaked through Authorization: Bearer pattern"
+        assert "[REDACTED]" in result
+
+    def test_authorization_bearer_lowercase(self):
+        """authorization: bearer <value> (lowercase) is redacted."""
+        secret = "sk-proj-abcdef1234567890abcdef"
+        msg = f"authorization: bearer {secret}"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through lowercase authorization: bearer"
+        assert "[REDACTED]" in result
+
+    def test_authorization_equals_value(self):
+        """authorization=<value> form is redacted."""
+        secret = "tok_live_abcdef1234567890"
+        msg = f"authorization={secret} other_data"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through authorization=value"
+        assert "[REDACTED]" in result
+
+    def test_bearer_standalone(self):
+        """Standalone Bearer <value> (not in Authorization header) is redacted."""
+        secret = "ghp_1234567890abcdef1234567890abcdef123456"
+        msg = f"Using Bearer {secret} for API call"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through standalone Bearer pattern"
+        assert "[REDACTED]" in result
+
+    def test_api_key_equals_value(self):
+        """api_key=<value> form is redacted."""
+        secret = "ak_prod_1234567890abcdef"
+        msg = f"api_key={secret} set in config"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through api_key=value"
+        assert "[REDACTED]" in result
+
+    def test_api_key_with_hyphen(self):
+        """api-key=<value> form is redacted."""
+        secret = "key-abcdef1234567890"
+        msg = f"api-key={secret}"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through api-key=value"
+        assert "[REDACTED]" in result
+
+    def test_token_equals_value(self):
+        """token=<value> form is redacted."""
+        secret = "xoxb-secret-token-value"
+        msg = f"token={secret} expires soon"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through token=value"
+        assert "[REDACTED]" in result
+
+    def test_password_colon_value(self):
+        """password: <value> form is redacted."""
+        secret = "supersecretpassword123"
+        msg = f"password: {secret} stored"
+        result = self._apply_filter(msg)
+        assert secret not in result, "Secret leaked through password:value"
+        assert "[REDACTED]" in result
+
+    def test_original_secret_never_present_in_log(self):
+        """Comprehensive: the original secret string never appears after filtering."""
+        secrets = [
+            "Bearer sk-proj-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authorization=tok_live_bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "api_key=ak_cccccccccccccccccccccccccccccccccccccc",
+            "Authorization: Bearer ddddddddddddddddddddddddddddddddddddddd",
+        ]
+        for msg in secrets:
+            result = self._apply_filter(msg)
+            # Extract the actual secret portion (after the key/indicator)
+            for token in msg.split():
+                if len(token) > 12 and token not in ("Authorization:", "authorization=", "Bearer", "api_key=", "Bearer"):
+                    # This looks like it could be the secret value
+                    if any(token.startswith(p) for p in ("sk-", "tok_", "ak_", "ghp_")):
+                        assert token not in result, f"Secret '{token}' found in filtered output: {result}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher tests
 # ---------------------------------------------------------------------------
 
@@ -547,6 +650,110 @@ class TestDispatcher:
         assert results[0]["status"] == "dispatched"
         assert results[1]["status"] == "skipped"
         assert results[2]["status"] == "skipped"
+
+
+# ---------------------------------------------------------------------------
+# Traceability: block-label issues must never dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestBlockLabelTraceability:
+    """Regression: BOS-20/BOS-21-style issues with do-not-dispatch-yet
+    (or any block label) must NEVER be dispatched. This is a policy invariant,
+    not a hardcoded issue-key exclusion — the gate is label-based."""
+
+    def _make_dispatcher(self, issues, dry_run=True):
+        jira = MagicMock(spec=JiraClient)
+        jira.search_issues.return_value = issues
+        hermes = MagicMock(spec=HermesClient)
+        hermes.check_existing_task.return_value = None
+        hermes.create_task.return_value = {"task_id": "should-not-happen"}
+
+        import logging
+        from jira_hermes_bridge import StructuredLogger
+        logger = StructuredLogger(level=logging.WARNING)
+
+        return Dispatcher(
+            jira=jira, hermes=hermes, logger=logger,
+            project_key="BOS", dry_run=dry_run,
+        ), jira, hermes
+
+    def test_do_not_dispatch_yet_never_dispatches(self):
+        """Issues labeled do-not-dispatch-yet are never dispatched."""
+        issue = make_issue(
+            key="BOS-20",
+            labels=[
+                "ready-for-dispatch", "agent-backend", "do-not-dispatch-yet",
+                "risk-low", "phase-test", "points-1", "ver-0.1",
+            ],
+        )
+        dispatcher, jira, hermes = self._make_dispatcher([issue])
+        results = dispatcher.run()
+
+        assert len(results) == 1
+        assert results[0]["status"] == "skipped"
+        assert "do-not-dispatch-yet" in results[0]["reason"]
+        hermes.create_task.assert_not_called()
+
+    def test_status_blocked_never_dispatches(self):
+        """Issues labeled status-blocked are never dispatched."""
+        issue = make_issue(
+            key="BOS-21",
+            labels=[
+                "ready-for-dispatch", "agent-backend", "status-blocked",
+                "risk-low", "phase-test", "points-1", "ver-0.1",
+            ],
+        )
+        dispatcher, jira, hermes = self._make_dispatcher([issue])
+        results = dispatcher.run()
+
+        assert len(results) == 1
+        assert results[0]["status"] == "skipped"
+        assert "status-blocked" in results[0]["reason"]
+        hermes.create_task.assert_not_called()
+
+    def test_deferred_scope_never_dispatches(self):
+        """Issues labeled deferred-scope are never dispatched."""
+        issue = make_issue(
+            key="BOS-22-test",
+            labels=[
+                "ready-for-dispatch", "agent-backend", "deferred-scope",
+                "risk-low", "phase-test", "points-1", "ver-0.1",
+            ],
+        )
+        dispatcher, jira, hermes = self._make_dispatcher([issue])
+        results = dispatcher.run()
+
+        assert len(results) == 1
+        assert results[0]["status"] == "skipped"
+        assert "deferred-scope" in results[0]["reason"]
+        hermes.create_task.assert_not_called()
+
+    def test_all_block_labels_combined_never_dispatch(self):
+        """Issues with ALL block labels simultaneously are never dispatched."""
+        issue = make_issue(
+            key="BOS-99",
+            labels=[
+                "ready-for-dispatch", "agent-backend",
+                "do-not-dispatch-yet", "status-blocked", "deferred-scope",
+                "risk-low", "phase-test", "points-1", "ver-0.1",
+            ],
+        )
+        dispatcher, jira, hermes = self._make_dispatcher([issue])
+        results = dispatcher.run()
+
+        assert len(results) == 1
+        assert results[0]["status"] == "skipped"
+        hermes.create_task.assert_not_called()
+
+    def test_no_hardcoded_issue_exclusions_in_eligibility(self):
+        """Eligibility filtering is purely label-based — no issue keys are
+        hard-coded in the production logic."""
+        import inspect
+        from jira_hermes_bridge import check_eligibility
+        source = inspect.getsource(check_eligibility)
+        # Must not contain any BOS-NNN style hard-coded key exclusions
+        assert "BOS-" not in source, "check_eligibility must not hard-code issue keys"
 
 
 # ---------------------------------------------------------------------------

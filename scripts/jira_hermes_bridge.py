@@ -61,7 +61,13 @@ class RedactingFilter(logging.Filter):
     """Redacts sensitive values from log records."""
 
     REDACTED_PATTERNS = [
-        (re.compile(r"(?i)(token|api[_-]?key|password|secret|auth)[:=]\s*\S+"), r"\1=[REDACTED]"),
+        # Authorization: Bearer <value> or Authorization: Basic <value>
+        (re.compile(r"(?i)authorization:\s*(bearer|basic)\s+\S+"), r"authorization: \1 [REDACTED]"),
+        # Bare Bearer/Basic token (not preceded by authorization: already matched above)
+        (re.compile(r"(?i)(?<!\w)(bearer|basic)\s+\S{8,}"), r"\1 [REDACTED]"),
+        # key=value / key:value forms (token, api_key, password, secret, auth)
+        (re.compile(r"(?i)\b(token|api[_-]?key|password|secret|authorization?)[\s]*[:=]\s*\S+"), r"\1=[REDACTED]"),
+        # Environment variable assignments
         (re.compile(r"(?i)(JIRA_API_TOKEN|JIRA_USER)=\S+"), r"\1=[REDACTED]"),
     ]
 

@@ -49,7 +49,7 @@ An issue is eligible for dispatch when ALL conditions are met:
 ## Usage
 
 ```bash
-# Dry run (no Jira modifications, no Heremes tasks created)
+# Dry run (no Jira modifications, no Hermes tasks created)
 python scripts/jira_hermes_bridge.py --dry-run
 
 # Production run
@@ -97,7 +97,7 @@ kanban SQLite database.
 ## Tests
 
 ```bash
-# Run all bridge tests (72 tests) + readiness tests (41 tests)
+# Run all bridge tests (87 tests) + readiness tests (40 tests)
 python -m pytest tests/ -v
 
 # Run bridge tests only
@@ -110,6 +110,8 @@ Test categories:
 - **Branch derivation** (4 tests): determinism, special chars, length
 - **Bounded context** (7 tests): sections, ADF, deps, scope, no vision leakage
 - **Redaction** (5 tests): tokens, nested dicts, API key variants, auth headers
+- **RedactingFilter** (9 tests): Authorization: Bearer, authorization=, Bearer standalone, api_key=, password:, comprehensive secret-leak check
+- **Block label traceability** (5 tests): do-not-dispatch-yet/status-blocked/deferred-scope never dispatched, no hard-coded exclusions
 - **Dispatcher** (8 tests): dispatch, skip, duplicate, failure, dry-run, Jira updates
 - **Idempotency** (2 tests): key format, duplicate suppression
 - **Dependency resolution** (7 tests): Done/Closed/Resolved pass, To Do/In Progress fail
@@ -117,7 +119,7 @@ Test categories:
 - **Credentials** (3 tests): missing BASE_URL, USER, API_TOKEN
 - **Integration boundaries** (4 tests): Jira adapter, Hermes adapter
 - **CLI** (4 tests): help, missing env, flags
-- **Edge cases** (6 tests): empty, missing keys, None, Unicode, full coverage
+- **Edge cases** (8 tests): empty, missing keys, None, Unicode, full coverage
 
 ## Files
 

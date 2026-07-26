@@ -44,7 +44,7 @@ An issue is **ready for dispatch** only when **all** applicable conditions are t
 ## Enforcement
 
 1. **Label gate**: Dispatch queries must include `ready-for-dispatch` in filters.
-2. **Automated check**: `scripts/check_readiness.py` validates issue JSON against this checklist.
+2. **Automated check**: `scripts/check_readiness.py` validates issue JSON against all 10 checklist items: block labels, description structure, acceptance criteria, tests/evidence (item 3), dependency links, required labels, human approval, security/privacy (item 6), repository context (item 8), and dispatch label.
 3. **Self-healing**: Removing any prerequisite label (via API or UI) automatically invalidates readiness.
 4. **Reviewer gate**: High-risk or human-approval issues require a non-author reviewer.
 

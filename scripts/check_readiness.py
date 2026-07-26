@@ -98,11 +98,41 @@ def check_human_approval(labels: list[str], version_labels: list[str]) -> tuple[
     has_risk_high = "risk-high" in labels
     pre_v1 = any(not re.match(r"^ver-1", v) for v in version_labels) if version_labels else True
 
-    if has_risk_high and not has_ha:
-        return False, "risk-high without human-approval-required"
-    if pre_v1 and has_risk_high and not has_ha:
-        return False, "Pre-1.0 high-risk issue needs human-approval-required"
+    if (pre_v1 or has_risk_high) and not has_ha:
+        return False, "Pre-1.0 or high-risk issue needs human-approval-required"
     return True, "Human approval requirement satisfied"
+
+
+def check_tests_evidence(desc: str | None) -> tuple[bool, str]:
+    """Policy item 3: Required tests and evidence are specified."""
+    if not desc:
+        return False, "No description to check for tests/evidence"
+    pattern = r"test|evidence|spec|verif|qa"
+    if re.search(pattern, desc, re.IGNORECASE):
+        return True, "Tests or evidence referenced in description"
+    return False, "No tests or evidence referenced in description"
+
+
+def check_security_privacy(desc: str | None, labels: list[str]) -> tuple[bool, str]:
+    """Policy item 6: Security/privacy implications recorded."""
+    if "risk-high" in labels:
+        return True, "risk-high label triggers security review"
+    if not desc:
+        return False, "No description to check for security/privacy"
+    pattern = r"security|privacy|auth|credential|pii|gdpr|encrypt|bcrypt|hash"
+    if re.search(pattern, desc, re.IGNORECASE):
+        return True, "Security/privacy implications found in description"
+    return False, "No security/privacy implications recorded"
+
+
+def check_repository_context(desc: str | None) -> tuple[bool, str]:
+    """Policy item 8: Repository/module context identified."""
+    if not desc:
+        return False, "No description to check for repository context"
+    pattern = r"repositor|module|component|repo|service|api|frontend|backend|library|package|plugin"
+    if re.search(pattern, desc, re.IGNORECASE):
+        return True, "Repository/module context found in description"
+    return False, "No repository or module context identified"
 
 
 # --- Main validator ------------------------------------------------------------
@@ -157,6 +187,18 @@ def validate_issue(issue: dict[str, Any]) -> dict:
     # 7. ready-for-dispatch label
     passed, detail = check_ready_for_dispatch(labels)
     checks.append({"name": "ready_for_dispatch", "passed": passed, "detail": detail})
+
+    # 8. Tests/evidence specified (policy item 3)
+    passed, detail = check_tests_evidence(desc_text)
+    checks.append({"name": "tests_evidence", "passed": passed, "detail": detail})
+
+    # 9. Security/privacy recorded (policy item 6)
+    passed, detail = check_security_privacy(desc_text, labels)
+    checks.append({"name": "security_privacy", "passed": passed, "detail": detail})
+
+    # 10. Repository/module context (policy item 8)
+    passed, detail = check_repository_context(desc_text)
+    checks.append({"name": "repository_context", "passed": passed, "detail": detail})
 
     all_passed = all(c["passed"] for c in checks)
     return {"ready": all_passed, "checks": checks}

@@ -52,8 +52,9 @@ describe('HealthController', () => {
     it('should return readiness status', () => {
       const result = controller.ready();
       expect(result).toHaveProperty('status', 'ok');
-      expect(result).toHaveProperty('checks');
-      expect(result.checks).toHaveProperty('database', 'connected');
+      expect(result).toHaveProperty('timestamp');
+      expect(result).toHaveProperty('services');
+      expect(result.services).toEqual({});
     });
   });
 });

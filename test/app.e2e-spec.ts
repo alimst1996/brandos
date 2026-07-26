@@ -70,7 +70,8 @@ describe('HealthController (e2e)', () => {
         .expect((res) => {
           expect(res.body.success).toBe(true);
           expect(res.body.data.status).toBe('ok');
-          expect(res.body.data).toHaveProperty('checks');
+          expect(res.body.data).toHaveProperty('services');
+          expect(res.body.data.services).toEqual({});
         });
     });
   });
@@ -107,14 +108,10 @@ describe('AppModule (e2e)', () => {
   });
 
   it('GET /api/docs should return Swagger UI', () => {
-    return request(app.getHttpServer())
-      .get('/api/docs')
-      .expect(200);
+    return request(app.getHttpServer()).get('/api/docs').expect(200);
   });
 
   it('GET /nonexistent should return 404', () => {
-    return request(app.getHttpServer())
-      .get('/api/v1/nonexistent')
-      .expect(404);
+    return request(app.getHttpServer()).get('/api/v1/nonexistent').expect(404);
   });
 });

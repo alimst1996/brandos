@@ -35,6 +35,8 @@ from recovery_classify import (
     detect_stranded_tasks,
 )
 from recovery_audit import AuditLogger, redact_dict
+from recovery_actions import execute_plan, ActionResult, ActionOutcome
+from recovery_notify import notify_escalation, notify_daily_digest
 
 # Default kanban DB path (Windows ~/AppData)
 KANBAN_DB = os.path.expanduser("~/AppData/Local/hermes/kanban/boards/brandos/kanban.db")
@@ -61,7 +63,7 @@ def get_tasks(db_path: str) -> List[dict]:
     conn.row_factory = sqlite3.Row
     try:
         cur = conn.execute(
-            "SELECT * FROM tasks WHERE archived = 0 OR archived IS NULL"
+            "SELECT * FROM tasks WHERE status != 'archived'"
         )
         rows = cur.fetchall()
         return [dict(row) for row in rows]
@@ -298,6 +300,21 @@ def main() -> None:
         action="store_true",
         help="Pretty-print JSON output",
     )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Execute recommended actions (default is plan-only/dry-run)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Log actions without mutating the database (implies --execute)",
+    )
+    parser.add_argument(
+        "--notify",
+        action="store_true",
+        help="Send Telegram notifications for escalations and daily digest",
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.db):
@@ -306,6 +323,28 @@ def main() -> None:
         sys.exit(1)
 
     plan = build_recovery_plan(args.db, now=args.now)
+
+    # Execute actions if requested
+    action_results = []
+    if args.execute or args.dry_run:
+        action_results_raw = execute_plan(args.db, plan, dry_run=args.dry_run)
+        action_results = [
+            {
+                "action": r.action,
+                "task_id": r.task_id,
+                "outcome": r.outcome.value,
+                "details": r.details,
+                "metadata": r.metadata,
+            }
+            for r in action_results_raw
+        ]
+        plan["action_results"] = action_results
+
+    # Send notifications if requested
+    if args.notify:
+        notify_daily_digest(plan)
+        if action_results:
+            notify_escalation(action_results, board_summary=plan.get("wip"))
 
     indent = 2 if args.pretty else None
     print(json.dumps(plan, indent=indent, default=str))

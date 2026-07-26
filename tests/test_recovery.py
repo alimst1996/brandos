@@ -62,16 +62,39 @@ def make_temp_kanban_db(tasks: list, links: list = None) -> str:
         CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
             title TEXT,
-            status TEXT,
+            body TEXT,
             assignee TEXT,
-            archived INTEGER DEFAULT 0,
-            started_at INTEGER,
-            heartbeat_at INTEGER,
-            max_runtime_seconds INTEGER,
-            block_kind TEXT,
-            block_recurrences INTEGER DEFAULT 0,
+            status TEXT,
+            priority INTEGER DEFAULT 0,
+            created_by TEXT,
             created_at INTEGER,
-            updated_at INTEGER
+            started_at INTEGER,
+            completed_at INTEGER,
+            workspace_kind TEXT,
+            workspace_path TEXT,
+            branch_name TEXT,
+            project_id TEXT,
+            claim_lock TEXT,
+            claim_expires INTEGER,
+            tenant TEXT,
+            result TEXT,
+            idempotency_key TEXT,
+            consecutive_failures INTEGER DEFAULT 0,
+            worker_pid INTEGER,
+            last_failure_error TEXT,
+            max_runtime_seconds INTEGER,
+            last_heartbeat_at INTEGER,
+            current_run_id INTEGER,
+            workflow_template_id TEXT,
+            current_step_key TEXT,
+            skills TEXT,
+            model_override TEXT,
+            max_retries INTEGER,
+            goal_mode INTEGER,
+            goal_max_turns INTEGER,
+            session_id TEXT,
+            block_kind TEXT,
+            block_recurrences INTEGER DEFAULT 0
         )
     """)
     conn.execute("""
@@ -95,22 +118,24 @@ def make_temp_kanban_db(tasks: list, links: list = None) -> str:
     for t in tasks:
         conn.execute(
             """INSERT OR REPLACE INTO tasks
-               (id, title, status, assignee, archived, started_at, heartbeat_at,
-                max_runtime_seconds, block_kind, block_recurrences, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (id, title, status, assignee, started_at, last_heartbeat_at,
+                max_runtime_seconds, block_kind, block_recurrences,
+                created_at, completed_at, priority, created_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 t.get("id", ""),
                 t.get("title", ""),
                 t.get("status", ""),
                 t.get("assignee", ""),
-                t.get("archived", 0),
                 t.get("started_at"),
-                t.get("heartbeat_at"),
+                t.get("heartbeat_at") or t.get("last_heartbeat_at"),
                 t.get("max_runtime_seconds"),
                 t.get("block_kind"),
                 t.get("block_recurrences", 0),
                 t.get("created_at", int(time.time())),
-                t.get("updated_at", int(time.time())),
+                t.get("completed_at"),
+                t.get("priority", 0),
+                t.get("created_by", "test"),
             ),
         )
 
@@ -551,7 +576,7 @@ class TestRecoveryPlan(unittest.TestCase):
         """Archived tasks are not included in recovery plan."""
         tasks = [
             {"id": "1", "status": "running", "assignee": "brandosbackend"},
-            {"id": "2", "status": "running", "assignee": "brandosfrontend", "archived": 1},
+            {"id": "2", "status": "archived", "assignee": "brandosfrontend"},
         ]
         db = self._make_db(tasks)
         all_tasks = get_tasks(db)

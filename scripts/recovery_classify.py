@@ -51,7 +51,7 @@ def classify_task(task: dict, now: int) -> TaskState:
     """Classify a single kanban task into a TaskState.
 
     Args:
-        task: Task dict with keys like 'status', 'started_at', 'heartbeat_at',
+        task: Task dict with keys like 'status', 'started_at', 'last_heartbeat_at',
               'block_kind', 'block_recurrences', 'assignee', 'max_runtime_seconds',
               'id', 'title', etc.
         now: Current Unix timestamp (seconds since epoch).
@@ -61,7 +61,8 @@ def classify_task(task: dict, now: int) -> TaskState:
     """
     status = task.get("status", "")
     started_at = task.get("started_at")
-    heartbeat_at = task.get("heartbeat_at")
+    # Accept both last_heartbeat_at (real DB) and heartbeat_at (tests/legacy)
+    heartbeat_at = task.get("last_heartbeat_at") or task.get("heartbeat_at")
     block_kind = task.get("block_kind", "")
     block_recurrences = task.get("block_recurrences", 0) or 0
     max_runtime = task.get("max_runtime_seconds")

@@ -1402,3 +1402,25 @@ class TestJiraSearchCompat:
 
         result = _extract_jira_error(mock_err)
         assert "<html>" in result
+
+
+def test_transition_issue_accepts_empty_204_response():
+    client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+
+    transitions_response = MagicMock()
+    transitions_response.read.return_value = json.dumps({
+        "transitions": [{"id": "31", "name": "In Progress"}],
+    }).encode("utf-8")
+    transitions_response.__enter__.return_value = transitions_response
+    transitions_response.__exit__.return_value = False
+
+    empty_transition_response = MagicMock()
+    empty_transition_response.read.return_value = b""
+    empty_transition_response.__enter__.return_value = empty_transition_response
+    empty_transition_response.__exit__.return_value = False
+
+    with patch(
+        "urllib.request.urlopen",
+        side_effect=[transitions_response, empty_transition_response],
+    ):
+        assert client.transition_issue("BOS-26", "In Progress") == {}

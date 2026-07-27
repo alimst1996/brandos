@@ -1,7 +1,7 @@
 # Autopilot Reconcile — Handoff Brief (v3, post second review)
 
-39 reconcile unit tests pass (`python -m pytest tests/test_reconcile.py -v`).
-Together with the bridge suite, 141 tests pass. The full
+40 reconcile unit tests pass (`python -m pytest tests/test_reconcile.py -v`).
+Together with the bridge suite, 143 tests pass. The full
 cycle Implement → Review → Rework/Done → Next is now closed. Still: do NOT
 switch cron until the acceptance run below passes on the real box.
 

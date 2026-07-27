@@ -60,9 +60,14 @@ def check_acceptance_criteria(desc: str | None) -> tuple[bool, str]:
 
 
 def check_dependency_links(issuelinks: list[dict]) -> tuple[bool, str]:
+    # A link is a real blocker only when THIS issue is on the receiving end,
+    # i.e. it carries an inwardIssue with the "is blocked by" relation. Links
+    # that only carry an outwardIssue mean this issue blocks something else -
+    # those must be ignored (and previously crashed this function).
     blocking = [
         lk for lk in issuelinks
         if lk.get("type", {}).get("inward") == "is blocked by"
+        and lk.get("inwardIssue") is not None
     ]
     if not blocking:
         return True, "No unresolved block links"

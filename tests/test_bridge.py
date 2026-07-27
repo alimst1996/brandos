@@ -18,9 +18,13 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-# Add scripts dir to path
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+# Import from normal repo layout or this flat review bundle.
+_HERE = Path(__file__).resolve().parent
+_SCRIPT_DIR = _HERE.parent / "scripts"
+if not (_SCRIPT_DIR / "jira_hermes_bridge.py").exists():
+    _SCRIPT_DIR = _HERE
+sys.path.insert(0, str(_SCRIPT_DIR))
+BRIDGE_FILE = _SCRIPT_DIR / "jira_hermes_bridge.py"
 
 from jira_hermes_bridge import (
     AGENT_LABEL_TO_PROFILE,
@@ -994,6 +998,42 @@ class TestHermesAdapterBoundary:
         )
         assert result["dry_run"] is True
 
+    def test_real_create_uses_installed_cli_contract(self, monkeypatch):
+        import logging
+        import subprocess
+        from jira_hermes_bridge import StructuredLogger
+
+        # The host profile may override this variable (for example "default").
+        # Pin the value because this test verifies argument shape, not profile
+        # configuration precedence.
+        monkeypatch.setenv("HERMES_KANBAN_BOARD", "brandos")
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return type("Result", (), {
+                "returncode": 0,
+                "stdout": '{"id":"t_1"}',
+                "stderr": "",
+            })()
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        hermes = HermesClient(logger=StructuredLogger(level=logging.WARNING))
+        hermes.create_task(
+            title="BOS-1 - Work",
+            body="Body",
+            assignee="brandosbackend",
+            project="ai-marketing-vibe",
+            branch_name="bos1-work",
+            idempotency_key="jira:BOS-1",
+        )
+        cmd = captured["cmd"]
+        assert cmd[:5] == ["hermes", "kanban", "--board", "brandos", "create"]
+        assert "--title" not in cmd
+        assert "--workspace-kind" not in cmd
+        assert cmd[cmd.index("--workspace") + 1] == "worktree"
+        assert cmd[-1] == "BOS-1 - Work"
+
 
 # ---------------------------------------------------------------------------
 # CLI tests
@@ -1006,7 +1046,7 @@ class TestCLI:
     def test_help_exits_zero(self):
         import subprocess
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "jira_hermes_bridge.py"), "--help"],
+            [sys.executable, str(BRIDGE_FILE), "--help"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0
@@ -1017,7 +1057,7 @@ class TestCLI:
         import subprocess
         env = {k: v for k, v in os.environ.items() if not k.startswith("JIRA_")}
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "jira_hermes_bridge.py"), "--dry-run"],
+            [sys.executable, str(BRIDGE_FILE), "--dry-run"],
             capture_output=True, text=True, env=env,
         )
         assert result.returncode == 1
@@ -1026,7 +1066,7 @@ class TestCLI:
         """--dry-run is accepted."""
         import subprocess
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "jira_hermes_bridge.py"),
+            [sys.executable, str(BRIDGE_FILE),
              "--dry-run", "--help"],
             capture_output=True, text=True,
         )
@@ -1036,7 +1076,7 @@ class TestCLI:
         """--project-key is accepted."""
         import subprocess
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "jira_hermes_bridge.py"),
+            [sys.executable, str(BRIDGE_FILE),
              "--project-key", "TEST", "--help"],
             capture_output=True, text=True,
         )
@@ -1150,14 +1190,16 @@ class TestJiraSearchCompat:
 
         # Verify fields is a list, not a string
         assert captured_request["method"] == "POST"
-        assert "/rest/api/3/search" in captured_request["url"]
+        assert captured_request["url"].endswith("/rest/api/3/search/jql")
+        assert "startAt" not in captured_request["data"]
+        assert "nextPageToken" not in captured_request["data"]
         assert isinstance(captured_request["data"]["fields"], list)
         assert "summary" in captured_request["data"]["fields"]
         assert "description" in captured_request["data"]["fields"]
         assert "labels" in captured_request["data"]["fields"]
 
-    def test_search_issues_endpoint_is_rest_api_3_search(self):
-        """search_issues uses POST /rest/api/3/search endpoint."""
+    def test_search_issues_endpoint_is_enhanced_search(self):
+        """search_issues uses the current enhanced-search endpoint."""
         from unittest.mock import patch, MagicMock
 
         client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
@@ -1174,7 +1216,33 @@ class TestJiraSearchCompat:
         with patch("urllib.request.urlopen", side_effect=mock_urlopen):
             client.search_issues("project = BOS")
 
-        assert captured_url["url"] == "https://test.atlassian.net/rest/api/3/search"
+        assert captured_url["url"] == "https://test.atlassian.net/rest/api/3/search/jql"
+
+    def test_search_issues_paginates_with_next_page_token(self):
+        """Enhanced search follows nextPageToken and respects overall limit."""
+        from unittest.mock import patch, MagicMock
+
+        client = JiraClient("https://test.atlassian.net", "user@test.com", "fake-token")
+        payloads = []
+        pages = [
+            {"issues": [{"key": "BOS-1"}], "nextPageToken": "token-2"},
+            {"issues": [{"key": "BOS-2"}]},
+        ]
+
+        def mock_urlopen(req, timeout=30):
+            payloads.append(json.loads(req.data.decode("utf-8")))
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps(pages[len(payloads) - 1]).encode("utf-8")
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            result = client.search_issues("project = BOS", max_results=2)
+
+        assert [item["key"] for item in result] == ["BOS-1", "BOS-2"]
+        assert "nextPageToken" not in payloads[0]
+        assert payloads[1]["nextPageToken"] == "token-2"
 
     def test_search_issues_extracts_issues_from_response(self):
         """search_issues correctly extracts the issues list from Jira response."""

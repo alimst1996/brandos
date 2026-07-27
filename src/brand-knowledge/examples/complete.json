@@ -1,0 +1,309 @@
+{
+  "schemaVersion": "1.0.0",
+  "brandId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "workspaceId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "version": 1,
+  "createdAt": "2026-07-27T12:00:00Z",
+  "updatedAt": "2026-07-27T12:00:00Z",
+  "createdBy": "user-uuid-1234",
+  "source": "user",
+  "status": "active",
+  "brandIdentity": {
+    "voice": {
+      "tone": "minimalist luxury — refined, confident, never loud",
+      "personality": ["sophisticated", "authentic", "minimal", "bold"],
+      "language": "en",
+      "doSay": ["craft", "essence", "intentional", "curated", "timeless"],
+      "dontSay": ["cheap", "deal", "sale", "discount", "buy now"],
+      "examples": [
+        {
+          "context": "Instagram caption",
+          "text": "Less noise. More intention. Every bottle, a statement.",
+          "source": "user"
+        },
+        {
+          "context": "Product description",
+          "text": "Crafted for those who notice what others miss.",
+          "source": "inferred"
+        }
+      ]
+    },
+    "values": {
+      "core": [
+        {
+          "name": "Intentionality",
+          "description": "Every choice is deliberate. Nothing is accidental.",
+          "source": "user"
+        },
+        {
+          "name": "Authenticity",
+          "description": "Real ingredients. Real craftsmanship. No shortcuts.",
+          "source": "user"
+        },
+        {
+          "name": "Quiet Luxury",
+          "description": "Confidence doesn't need to shout.",
+          "source": "inferred"
+        }
+      ],
+      "mission": "To create fragrances that embody intentional living.",
+      "vision": "A world where less is more, and every detail matters."
+    },
+    "positioning": {
+      "statement": "For discerning individuals who appreciate minimalist luxury and intentional craftsmanship in fragrance.",
+      "category": "luxury minimalist fragrance",
+      "differentiator": "All-natural ingredients with minimalist aesthetic — luxury that whispers rather than shouts.",
+      "targetAudience": "Design-conscious professionals aged 25-45",
+      "source": "user"
+    },
+    "visual": {
+      "primaryColor": "#1a1a2e",
+      "secondaryColor": "#e8d5b7",
+      "fonts": [
+        {
+          "name": "Playfair Display",
+          "usage": "heading",
+          "weight": "400-700",
+          "source": "google"
+        },
+        {
+          "name": "Inter",
+          "usage": "body",
+          "weight": "300-500",
+          "source": "google"
+        }
+      ],
+      "imageryStyle": "high-contrast, minimal composition, negative space, warm earth tones"
+    }
+  },
+  "audienceSegments": [
+    {
+      "id": "seg-001-uuid",
+      "name": "Design-Conscious Professionals",
+      "description": "Urban professionals who value aesthetics and intentional living.",
+      "demographics": {
+        "ageRange": "28-42",
+        "gender": "all",
+        "income": "$80k-$200k",
+        "location": ["Tehran", "Dubai", "London", "New York"],
+        "education": "University degree or higher"
+      },
+      "psychographics": {
+        "values": ["quality over quantity", "intentional living", "sustainability"],
+        "interests": ["design", "architecture", "art", "travel", "gastronomy"],
+        "lifestyle": "Minimalist aesthetic, curated experiences over possessions",
+        "behaviorPatterns": ["research-driven purchasing", "brand loyal when earned", "values exclusivity"]
+      },
+      "painPoints": [
+        "Mass-market fragrances feel generic and overbranded",
+        "Hard to find luxury that isn't ostentatious",
+        "Lack of transparency in ingredients"
+      ],
+      "goals": [
+        "Find signature scents that reflect their identity",
+        "Support brands aligned with their values",
+        "Discover unique fragrances not everyone wears"
+      ],
+      "channels": ["Instagram", "curated newsletters", "design blogs", "boutique retail"],
+      "source": "user",
+      "priority": "primary"
+    },
+    {
+      "id": "seg-002-uuid",
+      "name": "Fragrance Enthusiasts",
+      "description": "Dedicated fragrance collectors and niche perfume lovers.",
+      "demographics": {
+        "ageRange": "25-55",
+        "gender": "all"
+      },
+      "painPoints": [
+        "Mainstream brands dominating the conversation",
+        "Difficulty finding artisanal fragrances with transparent sourcing"
+      ],
+      "goals": [
+        "Expand their collection with unique niche scents",
+        "Learn about fragrance composition and craftsmanship"
+      ],
+      "source": "inferred",
+      "priority": "secondary"
+    }
+  ],
+  "competitiveLandscape": {
+    "competitors": [
+      {
+        "id": "comp-001-uuid",
+        "name": "Le Labo",
+        "url": "https://lelabofragrances.com",
+        "description": "Niche fragrance house known for hand-blended, city-exclusive scents.",
+        "strengths": ["Strong brand identity", "Experiential retail", "City exclusives create FOMO"],
+        "weaknesses": ["Higher price point", "Limited availability outside major cities"],
+        "overlap": "Minimalist aesthetic, niche positioning, artisanal narrative",
+        "source": "inferred"
+      },
+      {
+        "id": "comp-002-uuid",
+        "name": "Byredo",
+        "url": "https://byredo.com",
+        "description": "Swedish luxury brand with minimalist design and artistic storytelling.",
+        "strengths": ["Clean visual identity", "Strong storytelling", "Cross-category expansion"],
+        "weaknesses": ["Premium pricing limits accessibility", "Some scents polarizing"],
+        "overlap": "Minimalist luxury positioning, design-conscious audience",
+        "source": "inferred"
+      }
+    ],
+    "differentiators": [
+      {
+        "name": "All-Natural Ingredients",
+        "description": "100% natural ingredients with full transparency on sourcing.",
+        "evidence": ["Ingredient sourcing documentation", "Third-party certifications"],
+        "source": "user"
+      },
+      {
+        "name": "Cultural Bridge",
+        "description": "Bridges Persian/Eastern fragrance traditions with modern minimalist aesthetics.",
+        "evidence": ["Unique scent profiles", "Cultural storytelling in brand narrative"],
+        "source": "inferred"
+      }
+    ],
+    "marketPosition": "Accessible luxury niche — between mass-market and ultra-premium artisanal"
+  },
+  "contentPillars": {
+    "pillars": [
+      {
+        "id": "pillar-001-uuid",
+        "name": "Craft & Process",
+        "description": "Behind-the-scenes of fragrance creation, ingredient sourcing, and craftsmanship.",
+        "keywords": ["craftsmanship", "ingredients", "process", "artisanal", "natural"],
+        "priority": 1,
+        "source": "user"
+      },
+      {
+        "id": "pillar-002-uuid",
+        "name": "Intentional Living",
+        "description": "Minimalism, mindfulness, and the philosophy of less but better.",
+        "keywords": ["minimalism", "intentional", "quality", "less is more", "mindful"],
+        "priority": 2,
+        "source": "user"
+      },
+      {
+        "id": "pillar-003-uuid",
+        "name": "Scent & Identity",
+        "description": "How fragrance connects to personal identity and self-expression.",
+        "keywords": ["identity", "signature scent", "self-expression", "personal style"],
+        "priority": 3,
+        "source": "inferred"
+      }
+    ],
+    "themes": [
+      {
+        "id": "theme-001-uuid",
+        "name": "Ingredient Spotlight",
+        "description": "Deep dives into individual natural ingredients and their stories.",
+        "relatedPillars": ["pillar-001-uuid"],
+        "frequency": "weekly",
+        "source": "user"
+      },
+      {
+        "id": "theme-002-uuid",
+        "name": "Behind the Bottle",
+        "description": "The making of a fragrance from concept to bottle.",
+        "relatedPillars": ["pillar-001-uuid", "pillar-003-uuid"],
+        "frequency": "monthly",
+        "source": "inferred"
+      }
+    ],
+    "contentMix": {
+      "distribution": {
+        "educational": 35,
+        "storytelling": 30,
+        "promotional": 15,
+        "user-generated": 10,
+        "behind-the-scenes": 10
+      },
+      "platforms": ["Instagram", "Newsletter", "Website Blog"]
+    }
+  },
+  "messagingHierarchy": {
+    "primaryMessage": {
+      "id": "msg-primary-uuid",
+      "text": "Less noise. More essence.",
+      "source": "user"
+    },
+    "supportingMessages": [
+      {
+        "id": "msg-supp-001-uuid",
+        "text": "Crafted from nature, designed with intention.",
+        "context": "Product introduction",
+        "source": "user"
+      },
+      {
+        "id": "msg-supp-002-uuid",
+        "text": "For those who notice what others miss.",
+        "context": "Brand positioning",
+        "source": "inferred"
+      }
+    ],
+    "proofPoints": [
+      {
+        "id": "pp-001-uuid",
+        "claim": "100% natural ingredients",
+        "evidence": "All ingredients sourced from certified organic farms with full supply chain documentation.",
+        "type": "certification",
+        "source": "user"
+      },
+      {
+        "id": "pp-002-uuid",
+        "claim": "Handcrafted in small batches",
+        "evidence": "Each batch limited to 500 units, hand-blended by master perfumers.",
+        "type": "case-study",
+        "source": "user"
+      }
+    ],
+    "callsToAction": [
+      {
+        "text": "Discover Your Scent",
+        "target": "/quiz",
+        "priority": 1
+      },
+      {
+        "text": "Explore the Collection",
+        "target": "/products",
+        "priority": 2
+      }
+    ]
+  },
+  "productMarketFit": {
+    "problemStatement": "Discerning consumers struggle to find luxury fragrances that align with minimalist values — most luxury brands lean into opulence, while natural brands lack sophistication.",
+    "solution": "A minimalist luxury fragrance house that bridges natural ingredients with refined, design-forward aesthetics — luxury that whispers rather than shouts.",
+    "targetMarket": "Design-conscious professionals and fragrance enthusiasts who value quality, transparency, and intentional living.",
+    "uniqueValue": "The only fragrance brand combining 100% natural ingredients with minimalist luxury design and Persian/Eastern scent traditions.",
+    "traction": [
+      {
+        "metric": "Organic Instagram Growth",
+        "value": "15,000 followers",
+        "trend": "growing",
+        "period": "Q2 2026"
+      },
+      {
+        "metric": "Repeat Purchase Rate",
+        "value": "42%",
+        "trend": "stable",
+        "period": "Last 6 months"
+      }
+    ],
+    "customerQuotes": [
+      {
+        "quote": "Finally a fragrance brand that understands less is more. The packaging alone tells you everything about the brand.",
+        "author": "Sarah M.",
+        "role": "Interior Designer",
+        "source": "user"
+      }
+    ],
+    "source": "user"
+  },
+  "metadata": {
+    "industry": "luxury fragrance",
+    "founded": "2024",
+    "origin": "Tehran, Iran"
+  }
+}

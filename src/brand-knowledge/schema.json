@@ -1,0 +1,411 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://brandos.ai/schemas/brand-knowledge/v1.0.0.json",
+  "title": "BrandKnowledge",
+  "description": "Brand Knowledge Layer schema for the BrandOS platform. Defines the complete data model for brand intelligence across 6 layers: identity, audience, competitive landscape, content pillars, messaging hierarchy, and product-market fit.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "brandId",
+    "workspaceId",
+    "version",
+    "createdAt",
+    "updatedAt",
+    "createdBy",
+    "source",
+    "status",
+    "brandIdentity",
+    "audienceSegments",
+    "competitiveLandscape",
+    "contentPillars",
+    "messagingHierarchy",
+    "productMarketFit"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the schema format (e.g. '1.0.0')"
+    },
+    "brandId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the brand"
+    },
+    "workspaceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the workspace (tenant isolation)"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic version counter (incremented on every save)"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp (ISO 8601)"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp (ISO 8601)"
+    },
+    "createdBy": {
+      "type": "string",
+      "description": "Actor UUID or 'system'"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["user", "inferred", "mixed"],
+      "description": "Aggregate data source"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "archived"],
+      "description": "Record status"
+    },
+    "brandIdentity": { "$ref": "#/$defs/BrandIdentity" },
+    "audienceSegments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AudienceSegment" },
+      "description": "Layer 2: Audience Segmentation"
+    },
+    "competitiveLandscape": { "$ref": "#/$defs/CompetitiveLandscape" },
+    "contentPillars": { "$ref": "#/$defs/ContentPillars" },
+    "messagingHierarchy": { "$ref": "#/$defs/MessagingHierarchy" },
+    "productMarketFit": { "$ref": "#/$defs/ProductMarketFit" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extensible metadata (not validated)"
+    }
+  },
+  "additionalProperties": false,
+
+  "$defs": {
+    "DataOrigin": {
+      "type": "string",
+      "enum": ["user", "inferred"],
+      "description": "Whether data was provided by user or inferred by AI"
+    },
+
+    "BrandIdentity": {
+      "type": "object",
+      "required": ["voice", "values", "positioning", "visual"],
+      "properties": {
+        "voice": { "$ref": "#/$defs/BrandVoice" },
+        "values": { "$ref": "#/$defs/BrandValues" },
+        "positioning": { "$ref": "#/$defs/BrandPositioning" },
+        "visual": { "$ref": "#/$defs/BrandVisual" }
+      },
+      "additionalProperties": false
+    },
+
+    "BrandVoice": {
+      "type": "object",
+      "required": ["tone", "personality", "language"],
+      "properties": {
+        "tone": { "type": "string" },
+        "personality": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "language": { "type": "string", "pattern": "^[a-z]{2}$" },
+        "doSay": { "type": "array", "items": { "type": "string" } },
+        "dontSay": { "type": "array", "items": { "type": "string" } },
+        "examples": { "type": "array", "items": { "$ref": "#/$defs/VoiceExample" } }
+      },
+      "additionalProperties": false
+    },
+
+    "VoiceExample": {
+      "type": "object",
+      "required": ["context", "text", "source"],
+      "properties": {
+        "context": { "type": "string" },
+        "text": { "type": "string" },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "BrandValues": {
+      "type": "object",
+      "required": ["core"],
+      "properties": {
+        "core": { "type": "array", "items": { "$ref": "#/$defs/ValueItem" }, "minItems": 1 },
+        "mission": { "type": "string" },
+        "vision": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "ValueItem": {
+      "type": "object",
+      "required": ["name", "description", "source"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "BrandPositioning": {
+      "type": "object",
+      "required": ["statement", "category", "differentiator", "targetAudience", "source"],
+      "properties": {
+        "statement": { "type": "string" },
+        "category": { "type": "string" },
+        "differentiator": { "type": "string" },
+        "targetAudience": { "type": "string" },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "BrandVisual": {
+      "type": "object",
+      "properties": {
+        "primaryColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "secondaryColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "logoUrl": { "type": "string", "format": "uri" },
+        "fonts": { "type": "array", "items": { "$ref": "#/$defs/FontSpec" } },
+        "imageryStyle": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "FontSpec": {
+      "type": "object",
+      "required": ["name", "usage", "source"],
+      "properties": {
+        "name": { "type": "string" },
+        "usage": { "type": "string" },
+        "weight": { "type": "string" },
+        "source": { "type": "string", "enum": ["google", "adobe", "custom", "system"] }
+      },
+      "additionalProperties": false
+    },
+
+    "AudienceSegment": {
+      "type": "object",
+      "required": ["id", "name", "description", "painPoints", "goals", "source", "priority"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "demographics": { "$ref": "#/$defs/Demographics" },
+        "psychographics": { "$ref": "#/$defs/Psychographics" },
+        "painPoints": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "goals": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "channels": { "type": "array", "items": { "type": "string" } },
+        "source": { "$ref": "#/$defs/DataOrigin" },
+        "priority": { "type": "string", "enum": ["primary", "secondary", "tertiary"] }
+      },
+      "additionalProperties": false
+    },
+
+    "Demographics": {
+      "type": "object",
+      "properties": {
+        "ageRange": { "type": "string" },
+        "gender": { "type": "string" },
+        "income": { "type": "string" },
+        "location": { "type": "array", "items": { "type": "string" } },
+        "education": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "Psychographics": {
+      "type": "object",
+      "properties": {
+        "values": { "type": "array", "items": { "type": "string" } },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "lifestyle": { "type": "string" },
+        "behaviorPatterns": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+
+    "CompetitiveLandscape": {
+      "type": "object",
+      "required": ["competitors", "differentiators"],
+      "properties": {
+        "competitors": { "type": "array", "items": { "$ref": "#/$defs/Competitor" } },
+        "differentiators": { "type": "array", "items": { "$ref": "#/$defs/Differentiator" }, "minItems": 1 },
+        "marketPosition": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "Competitor": {
+      "type": "object",
+      "required": ["id", "name", "description", "source"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "description": { "type": "string" },
+        "strengths": { "type": "array", "items": { "type": "string" } },
+        "weaknesses": { "type": "array", "items": { "type": "string" } },
+        "overlap": { "type": "string" },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "Differentiator": {
+      "type": "object",
+      "required": ["name", "description", "source"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "ContentPillars": {
+      "type": "object",
+      "required": ["pillars", "themes"],
+      "properties": {
+        "pillars": { "type": "array", "items": { "$ref": "#/$defs/Pillar" } },
+        "themes": { "type": "array", "items": { "$ref": "#/$defs/Theme" } },
+        "contentMix": { "$ref": "#/$defs/ContentMix" }
+      },
+      "additionalProperties": false
+    },
+
+    "Pillar": {
+      "type": "object",
+      "required": ["id", "name", "description", "priority", "source"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "priority": { "type": "integer", "minimum": 1 },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "Theme": {
+      "type": "object",
+      "required": ["id", "name", "description", "relatedPillars", "frequency", "source"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "relatedPillars": { "type": "array", "items": { "type": "string", "format": "uuid" }, "minItems": 1 },
+        "frequency": { "type": "string", "enum": ["daily", "weekly", "monthly", "seasonal"] },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "ContentMix": {
+      "type": "object",
+      "required": ["distribution"],
+      "properties": {
+        "distribution": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+        },
+        "platforms": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+
+    "MessagingHierarchy": {
+      "type": "object",
+      "required": ["primaryMessage", "supportingMessages", "proofPoints"],
+      "properties": {
+        "primaryMessage": { "$ref": "#/$defs/Message" },
+        "supportingMessages": { "type": "array", "items": { "$ref": "#/$defs/Message" } },
+        "proofPoints": { "type": "array", "items": { "$ref": "#/$defs/ProofPoint" } },
+        "callsToAction": { "type": "array", "items": { "$ref": "#/$defs/CallToAction" } }
+      },
+      "additionalProperties": false
+    },
+
+    "Message": {
+      "type": "object",
+      "required": ["id", "text", "source"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "text": { "type": "string" },
+        "audience": { "type": "string", "format": "uuid" },
+        "context": { "type": "string" },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "ProofPoint": {
+      "type": "object",
+      "required": ["id", "claim", "evidence", "type", "source"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "claim": { "type": "string" },
+        "evidence": { "type": "string" },
+        "type": { "type": "string", "enum": ["statistic", "testimonial", "case-study", "award", "certification"] },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "CallToAction": {
+      "type": "object",
+      "required": ["text", "target", "priority"],
+      "properties": {
+        "text": { "type": "string" },
+        "target": { "type": "string" },
+        "priority": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+
+    "ProductMarketFit": {
+      "type": "object",
+      "required": ["problemStatement", "solution", "targetMarket", "uniqueValue", "source"],
+      "properties": {
+        "problemStatement": { "type": "string" },
+        "solution": { "type": "string" },
+        "targetMarket": { "type": "string" },
+        "uniqueValue": { "type": "string" },
+        "traction": { "type": "array", "items": { "$ref": "#/$defs/TractionMetric" } },
+        "customerQuotes": { "type": "array", "items": { "$ref": "#/$defs/CustomerQuote" } },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    },
+
+    "TractionMetric": {
+      "type": "object",
+      "required": ["metric", "value", "trend"],
+      "properties": {
+        "metric": { "type": "string" },
+        "value": { "type": "string" },
+        "trend": { "type": "string", "enum": ["growing", "stable", "declining"] },
+        "period": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "CustomerQuote": {
+      "type": "object",
+      "required": ["quote", "source"],
+      "properties": {
+        "quote": { "type": "string" },
+        "author": { "type": "string" },
+        "role": { "type": "string" },
+        "source": { "$ref": "#/$defs/DataOrigin" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

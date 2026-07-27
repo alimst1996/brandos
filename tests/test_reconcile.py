@@ -628,6 +628,31 @@ def test_bridge_skip_rolls_back_promotion(monkeypatch):
     assert demoted == ["BOS-1"]
 
 
+def test_refill_limits_failed_attempts_to_available_slots(monkeypatch):
+    monkeypatch.setattr(R, "WIP_LIMIT", 1)
+    monkeypatch.setattr(R, "_run_hermes", make_hermes([]))
+    monkeypatch.setattr(R, "promote_issue", lambda k: None)
+    monkeypatch.setattr(R, "demote_issue", lambda k: None)
+    attempted = []
+
+    def fail(issue):
+        attempted.append(issue["key"])
+        raise RuntimeError("post-create reconciliation failed")
+
+    monkeypatch.setattr(R, "dispatch_issue", fail)
+    monkeypatch.setattr(
+        R,
+        "fetch_backlog_issues",
+        lambda: [
+            _issue(f"BOS-{n}", ["agent-backend", *REQUIRED_LABELS], GOOD_DESC)
+            for n in range(1, 22)
+        ],
+    )
+
+    assert R.phase_refill(active=[], credit_breaker_open=False) == 0
+    assert attempted == ["BOS-1"]
+
+
 # ---------------------------------------------------------------------------
 # item 5 — heartbeat is actually parsed
 # ---------------------------------------------------------------------------

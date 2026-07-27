@@ -849,14 +849,19 @@ def phase_refill(active: list[dict], credit_breaker_open: bool,
             issues=[i.get("key") for i in classified.needs_human])
 
     dispatched = 0
+    attempted = 0
     for issue in classified.ready_auto:
-        if dispatched >= slots:
+        # Bound attempts, not only successful dispatches. A downstream failure
+        # may happen after Hermes already created a card; counting successes
+        # alone can fan out across the entire backlog in one pass.
+        if attempted >= slots:
             break
         key = issue.get("key")
         prof = _issue_profile(issue)
         if prof in skip_profiles:
             log("dispatch_skipped_blocked_profile", issue=key, profile=prof)
             continue
+        attempted += 1
         promoted = False
         try:
             promote_issue(key)   # 1) write Jira label first (auditable)

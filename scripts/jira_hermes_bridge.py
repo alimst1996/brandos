@@ -270,7 +270,10 @@ class JiraClient:
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                raw = resp.read().decode("utf-8")
+                # Some successful Jira write endpoints may return an empty
+                # body. Treat that as success instead of raising JSONDecodeError.
+                return json.loads(raw) if raw.strip() else {}
         except urllib.error.HTTPError as e:
             raise JiraApiError(f"Jira comment failed: {e.code} {e.reason}") from e
 
@@ -317,7 +320,9 @@ class JiraClient:
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                raw = resp.read().decode("utf-8")
+                # Jira transition POST normally returns HTTP 204 with no body.
+                return json.loads(raw) if raw.strip() else {}
         except urllib.error.HTTPError as e:
             raise JiraApiError(f"Jira transition failed: {e.code} {e.reason}") from e
 
@@ -646,6 +651,8 @@ class HermesClient:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=60,
             )
             if result.returncode != 0:

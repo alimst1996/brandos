@@ -263,7 +263,10 @@ def test_refill_ignores_blocked_in_wip(monkeypatch):
     monkeypatch.setattr(R, "fetch_backlog_issues", lambda: ready)
     monkeypatch.setattr(R, "promote_issue", lambda k: None)
     disp = []
-    monkeypatch.setattr(R, "dispatch_issue", lambda i: disp.append(i["key"]))
+    monkeypatch.setattr(
+        R, "dispatch_issue",
+        lambda i: (disp.append(i["key"]) or {"status": "dispatched"}),
+    )
     # 2 blocked + 0 running: capacity should be full WIP_LIMIT (blocked ignored)
     active = [{"id": "b1", "status": "blocked"}, {"id": "b2", "status": "blocked"}]
     dispatched = R.phase_refill(active, credit_breaker_open=False)
@@ -287,7 +290,10 @@ def test_refill_skips_blocked_profile(monkeypatch):
     monkeypatch.setattr(R, "fetch_backlog_issues", lambda: ready)
     monkeypatch.setattr(R, "promote_issue", lambda k: None)
     disp = []
-    monkeypatch.setattr(R, "dispatch_issue", lambda i: disp.append(i["key"]))
+    monkeypatch.setattr(
+        R, "dispatch_issue",
+        lambda i: (disp.append(i["key"]) or {"status": "dispatched"}),
+    )
     R.phase_refill(active=[], credit_breaker_open=False,
                    skip_profiles={"brandosquality"})
     assert "BOS-2" in disp
@@ -333,7 +339,10 @@ def test_promote_runs_before_dispatch(monkeypatch):
     monkeypatch.setattr(R, "_run_hermes", make_hermes([]))
     order = []
     monkeypatch.setattr(R, "promote_issue", lambda k: order.append(f"promote:{k}"))
-    monkeypatch.setattr(R, "dispatch_issue", lambda i: order.append(f"dispatch:{i['key']}"))
+    monkeypatch.setattr(
+        R, "dispatch_issue",
+        lambda i: (order.append(f"dispatch:{i['key']}") or {"status": "dispatched"}),
+    )
     monkeypatch.setattr(R, "fetch_backlog_issues",
                         lambda: [_issue("BOS-1", ["agent-backend", *REQUIRED_LABELS], GOOD_DESC)])
     R.phase_refill(active=[], credit_breaker_open=False)
@@ -357,7 +366,10 @@ def test_full_cycle_blocked_review_then_refill(monkeypatch):
     monkeypatch.setattr(R, "_run_hermes", fake)
     disp = []
     monkeypatch.setattr(R, "promote_issue", lambda k: None)
-    monkeypatch.setattr(R, "dispatch_issue", lambda i: disp.append(i["key"]))
+    monkeypatch.setattr(
+        R, "dispatch_issue",
+        lambda i: (disp.append(i["key"]) or {"status": "dispatched"}),
+    )
     monkeypatch.setattr(R, "fetch_backlog_issues",
                         lambda: [_issue("BOS-2", ["agent-backend", *REQUIRED_LABELS], GOOD_DESC)])
     summary = R.reconcile()
@@ -403,6 +415,7 @@ def test_dry_run_is_forwarded_to_bridge_dispatcher(monkeypatch):
 
         def _process_issue(self, issue):
             seen["issue"] = issue["key"]
+            return {"status": "dispatched"}
 
     monkeypatch.setattr(
         R.bridge, "load_credentials",
@@ -555,6 +568,47 @@ def test_dispatch_failure_rolls_back_label(monkeypatch):
                         lambda: [_issue("BOS-1", ["agent-backend", *REQUIRED_LABELS], GOOD_DESC)])
     R.phase_refill(active=[], credit_breaker_open=False)
     assert demoted == ["BOS-1"]  # label rolled back so issue isn't lost
+
+
+def test_promoted_label_is_visible_to_bridge(monkeypatch):
+    monkeypatch.setattr(R, "_run_hermes", make_hermes([]))
+    monkeypatch.setattr(R, "promote_issue", lambda k: None)
+    monkeypatch.setattr(R, "demote_issue", lambda k: None)
+    seen_labels = []
+
+    def capture(issue):
+        seen_labels.extend(issue["fields"]["labels"])
+        return {"status": "dispatched"}
+
+    monkeypatch.setattr(R, "dispatch_issue", capture)
+    monkeypatch.setattr(
+        R,
+        "fetch_backlog_issues",
+        lambda: [_issue("BOS-1", ["agent-backend", *REQUIRED_LABELS], GOOD_DESC)],
+    )
+
+    assert R.phase_refill(active=[], credit_breaker_open=False) == 1
+    assert "ready-for-dispatch" in seen_labels
+
+
+def test_bridge_skip_rolls_back_promotion(monkeypatch):
+    monkeypatch.setattr(R, "_run_hermes", make_hermes([]))
+    monkeypatch.setattr(R, "promote_issue", lambda k: None)
+    demoted = []
+    monkeypatch.setattr(R, "demote_issue", lambda k: demoted.append(k))
+    monkeypatch.setattr(
+        R,
+        "dispatch_issue",
+        lambda issue: {"status": "skipped", "reason": "not eligible"},
+    )
+    monkeypatch.setattr(
+        R,
+        "fetch_backlog_issues",
+        lambda: [_issue("BOS-1", ["agent-backend", *REQUIRED_LABELS], GOOD_DESC)],
+    )
+
+    assert R.phase_refill(active=[], credit_breaker_open=False) == 0
+    assert demoted == ["BOS-1"]
 
 
 # ---------------------------------------------------------------------------

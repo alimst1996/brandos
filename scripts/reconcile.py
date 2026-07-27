@@ -847,7 +847,19 @@ def phase_refill(active: list[dict], credit_breaker_open: bool,
         try:
             promote_issue(key)   # 1) write Jira label first (auditable)
             promoted = True
-            dispatch_issue(issue)  # 2) dispatch; bridge dedups via idempotency-key
+            # The issue object came from the pre-promotion search response.
+            # Keep its in-memory labels consistent or the bridge eligibility
+            # check will reject it as missing ready-for-dispatch.
+            fields = issue.setdefault("fields", {})
+            labels = fields.setdefault("labels", [])
+            if "ready-for-dispatch" not in labels:
+                labels.append("ready-for-dispatch")
+            result = dispatch_issue(issue)  # bridge dedups via idempotency-key
+            if result.get("status") != "dispatched":
+                raise RuntimeError(
+                    f"bridge did not dispatch {key}: "
+                    f"{result.get('status')} {result.get('reason', '')}".strip()
+                )
             log("dispatched", issue=key, profile=prof)
             dispatched += 1
         except Exception as e:  # noqa: BLE001 - one bad issue must not kill the pass
@@ -976,14 +988,14 @@ def demote_issue(issue_key: str) -> None:
     _label_op(issue_key, "remove")
 
 
-def dispatch_issue(issue: dict) -> None:
+def dispatch_issue(issue: dict) -> dict:
     """Dispatch one issue via the existing, tested bridge Dispatcher path."""
     creds = bridge.load_credentials()
     jira = bridge.JiraClient(creds["base_url"], creds["user"], creds["api_token"])
     hermes = bridge.HermesClient(logger=bridge.StructuredLogger())
     disp = bridge.Dispatcher(jira=jira, hermes=hermes, logger=bridge.StructuredLogger(),
                              project_key=PROJECT_KEY, limit=1, dry_run=DRY_RUN)
-    disp._process_issue(issue)
+    return disp._process_issue(issue)
 
 
 # ---------------------------------------------------------------------------

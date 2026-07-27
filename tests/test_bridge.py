@@ -1003,6 +1003,10 @@ class TestHermesAdapterBoundary:
         import subprocess
         from jira_hermes_bridge import StructuredLogger
 
+        # The host profile may override this variable (for example "default").
+        # Pin the value because this test verifies argument shape, not profile
+        # configuration precedence.
+        monkeypatch.setenv("HERMES_KANBAN_BOARD", "brandos")
         captured = {}
 
         def fake_run(cmd, **kwargs):

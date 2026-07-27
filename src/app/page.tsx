@@ -17,6 +17,12 @@ export default function Home() {
               Features
             </a>
             <a
+              href="/personas"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Personas
+            </a>
+            <a
               href="/onboarding"
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >

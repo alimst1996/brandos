@@ -147,7 +147,14 @@ def _run_hermes(args: list[str], *, timeout: int = 60) -> str:
     cmd = ["hermes", "kanban", "--board", BOARD, *args]
     log("hermes_call", cmd=" ".join(cmd))
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
     except FileNotFoundError as e:
         raise HermesError(f"hermes CLI not found: {e}") from e
     except subprocess.TimeoutExpired as e:
@@ -558,7 +565,14 @@ def _run_gh(args: list[str], *, timeout: int = 60) -> str:
     """Run a read-only GitHub CLI command used by the manual-merge gate."""
     cmd = ["gh", *args]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
     except FileNotFoundError as e:
         raise RuntimeError(f"gh CLI not found: {e}") from e
     except subprocess.TimeoutExpired as e:

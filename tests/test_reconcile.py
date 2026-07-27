@@ -398,6 +398,23 @@ def test_dry_run_skips_mutating_verbs(monkeypatch):
     assert len(ran) == 1
 
 
+def test_hermes_output_is_decoded_as_utf8_with_replacement(monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured.update(kwargs)
+        return type(
+            "Result",
+            (),
+            {"returncode": 0, "stdout": "[]", "stderr": ""},
+        )()
+
+    monkeypatch.setattr(R.subprocess, "run", fake_run)
+    assert R._run_hermes(["list", "--json"]) == "[]"
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"
+
+
 def test_dry_run_promote_writes_nothing(monkeypatch):
     monkeypatch.setattr(R, "DRY_RUN", True)
     monkeypatch.setattr(R.bridge, "load_credentials",

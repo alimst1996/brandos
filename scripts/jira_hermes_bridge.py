@@ -179,45 +179,70 @@ class JiraClient:
         self.api_token = api_token
 
     def search_issues(self, jql: str, max_results: int = 50) -> list[dict]:
-        """Search issues using JQL. Returns list of issue dicts.
+        """Search issues through Jira Cloud enhanced JQL search.
 
-        Uses POST /rest/api/3/search with fields as a JSON array per
-        Jira Cloud REST API v3 contract.
+        `/rest/api/3/search` has been removed. Enhanced search uses
+        `nextPageToken`, not `startAt`, so this method paginates until the
+        requested overall limit is reached and guards repeated tokens.
         """
-        url = f"{self.base_url}/rest/api/3/search"
-        params = {
-            "jql": jql,
-            "maxResults": max_results,
-            "fields": [
-                "summary",
-                "description",
-                "labels",
-                "issuelinks",
-                "status",
-                "assignee",
-            ],
-        }
-        data = json.dumps(params).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Basic {_basic_auth(self.user, self.api_token)}",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-                return body.get("issues", [])
-        except urllib.error.HTTPError as e:
-            error_detail = _extract_jira_error(e)
-            raise JiraApiError(
-                f"Jira search failed: {e.code} {e.reason} — {error_detail}"
-            ) from e
-        except urllib.error.URLError as e:
-            raise JiraApiError(f"Jira connection failed: {e.reason}") from e
+        if max_results <= 0:
+            return []
+        url = f"{self.base_url}/rest/api/3/search/jql"
+        issues: list[dict] = []
+        next_token: str | None = None
+        seen_tokens: set[str] = set()
+
+        while len(issues) < max_results:
+            page_size = min(100, max_results - len(issues))
+            params: dict[str, Any] = {
+                "jql": jql,
+                "maxResults": page_size,
+                "fields": [
+                    "summary",
+                    "description",
+                    "labels",
+                    "issuelinks",
+                    "status",
+                    "assignee",
+                ],
+            }
+            if next_token:
+                params["nextPageToken"] = next_token
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(params).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Basic {_basic_auth(self.user, self.api_token)}",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                error_detail = _extract_jira_error(e)
+                raise JiraApiError(
+                    f"Jira search failed: {e.code} {e.reason} — {error_detail}"
+                ) from e
+            except urllib.error.URLError as e:
+                raise JiraApiError(f"Jira connection failed: {e.reason}") from e
+
+            page = body.get("issues", [])
+            if not isinstance(page, list):
+                raise JiraApiError("Jira search returned a non-list issues field")
+            issues.extend(page[:max_results - len(issues)])
+            token = body.get("nextPageToken")
+            if not token:
+                break
+            if not isinstance(token, str):
+                raise JiraApiError("Jira search returned an invalid nextPageToken")
+            if token in seen_tokens:
+                raise JiraApiError("Jira search repeated nextPageToken")
+            seen_tokens.add(token)
+            next_token = token
+
+        return issues
 
     def add_comment(self, issue_key: str, body: str) -> dict:
         """Add a comment to a Jira issue."""
@@ -590,19 +615,21 @@ class HermesClient:
             }
 
         # In real mode, this would call kanban_create via hermes CLI or tool
-        # For now, we construct the command that would be executed
+        # Use the installed Hermes CLI contract: board option before the verb,
+        # positional title, and `--workspace worktree`.
+        board = os.environ.get("HERMES_KANBAN_BOARD", "brandos")
         cmd = [
-            "hermes", "kanban", "create",
-            "--title", title,
+            "hermes", "kanban", "--board", board, "create",
             "--assignee", assignee,
             "--project", project,
             "--body", body,
-            "--workspace-kind", "worktree",
+            "--workspace", "worktree",
             "--branch", branch_name,
             "--max-runtime", str(runtime_seconds),
         ]
         if idempotency_key:
             cmd.extend(["--idempotency-key", idempotency_key])
+        cmd.extend(["--json", title])
 
         self.logger.info(
             "create_task_command",

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "brandId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "workspaceId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "version": 1,
+  "createdAt": "2026-07-27T12:00:00Z",
+  "updatedAt": "2026-07-27T12:00:00Z",
+  "createdBy": "system",
+  "source": "user",
+  "status": "draft",
+  "brandIdentity": {
+    "voice": {
+      "tone": "professional",
+      "personality": ["authentic"],
+      "language": "en"
+    },
+    "values": {
+      "core": [
+        {
+          "name": "Quality",
+          "description": "Commitment to excellence in everything we do.",
+          "source": "user"
+        }
+      ]
+    },
+    "positioning": {
+      "statement": "For discerning customers who value quality.",
+      "category": "general",
+      "differentiator": "Superior quality and attention to detail.",
+      "targetAudience": "Quality-conscious consumers",
+      "source": "user"
+    },
+    "visual": {}
+  },
+  "audienceSegments": [],
+  "competitiveLandscape": {
+    "competitors": [],
+    "differentiators": [
+      {
+        "name": "Quality Focus",
+        "description": "Uncompromising commitment to product quality.",
+        "source": "user"
+      }
+    ]
+  },
+  "contentPillars": {
+    "pillars": [],
+    "themes": []
+  },
+  "messagingHierarchy": {
+    "primaryMessage": {
+      "id": "b3c4d5e6-f7a8-9012-cdef-345678901234",
+      "text": "Quality you can trust.",
+      "source": "user"
+    },
+    "supportingMessages": [],
+    "proofPoints": []
+  },
+  "productMarketFit": {
+    "problemStatement": "Customers need reliable, high-quality products.",
+    "solution": "We deliver premium products with consistent quality.",
+    "targetMarket": "Quality-conscious consumers",
+    "uniqueValue": "Uncompromising quality at accessible prices.",
+    "source": "user"
+  }
+}
